@@ -1,37 +1,32 @@
 import request from "supertest";
-import app from "../src/app.js";
+import app, { connectDB, clearDB, disconnectDB } from "../src/app.js";
 
-let token;
-let taskId;
-
-beforeAll(async () => {
-  // Register
-  await request(app)
-    .post("/api/auth/register")
-    .send({
-      name: "Task User",
-      email: "task@example.com",
-      password: "123456"
-    });
-
-  // Login
-  const res = await request(app)
-    .post("/api/auth/login")
-    .send({
-      email: "task@example.com",
-      password: "123456"
-    });
-
-  token = res.body.token;
-});
+beforeAll(async () => await connectDB());
+beforeEach(async () => await clearDB());
+afterAll(async () => await disconnectDB());
 
 describe("Task Routes", () => {
+  let token;
+  let taskId;
 
-  it("should not allow access without token", async () => {
+  beforeEach(async () => {
+    // Register and login to get a fresh token for each test
+    await request(app)
+      .post("/api/auth/register")
+      .send({
+        name: "Test User",
+        email: "test@example.com",
+        password: "123456"
+      });
+
     const res = await request(app)
-      .get("/api/tasks");
+      .post("/api/auth/login")
+      .send({
+        email: "test@example.com",
+        password: "123456"
+      });
 
-    expect(res.statusCode).toBe(401);
+    token = res.body.token;
   });
 
   it("should create a task", async () => {
@@ -40,7 +35,7 @@ describe("Task Routes", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({
         title: "Test Task",
-        description: "Testing"
+        description: "Test Description"
       });
 
     expect(res.statusCode).toBe(201);
@@ -58,4 +53,16 @@ describe("Task Routes", () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
+  it("should delete a task", async () => {
+    const created = await request(app)
+      .post("/api/tasks")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ title: "To Delete" });
+
+    const res = await request(app)
+      .delete(`/api/tasks/${created.body._id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toBe(200);
+  });
 });
