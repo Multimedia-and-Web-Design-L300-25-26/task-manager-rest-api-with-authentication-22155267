@@ -1,8 +1,11 @@
 import request from "supertest";
-import app from "../src/app.js";
+import app, { connectDB, clearDB, disconnectDB } from "../src/app.js";
+
+beforeAll(async () => await connectDB());
+beforeEach(async () => await clearDB());
+afterAll(async () => await disconnectDB());
 
 describe("Auth Routes", () => {
-
   let token;
 
   it("should register a user", async () => {
@@ -19,6 +22,14 @@ describe("Auth Routes", () => {
   });
 
   it("should login user and return token", async () => {
+    await request(app)
+      .post("/api/auth/register")
+      .send({
+        name: "Test User",
+        email: "test@example.com",
+        password: "123456"
+      });
+
     const res = await request(app)
       .post("/api/auth/login")
       .send({
@@ -31,5 +42,4 @@ describe("Auth Routes", () => {
 
     token = res.body.token;
   });
-
 });
